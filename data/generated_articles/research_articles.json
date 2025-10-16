@@ -1,0 +1,15 @@
+{
+  "topic": "How has AI matured and what are the future outcomes of AI systems. Summarize the evolution of AI and and create predictions based on the knowledge base of where AI will be. Ensure you site sources explicitly.",
+  "word_count": 0,
+  "citations_count": 0,
+  "sources_used": 10,
+  "generation_timestamp": "2025-10-15T14:51:57.529348",
+  "generation_config": {
+    "topic": "How has AI matured and what are the future outcomes of AI systems. Summarize the evolution of AI and and create predictions based on the knowledge base of where AI will be. Ensure you site sources explicitly.",
+    "length": "medium",
+    "style": "academic",
+    "max_sources": 10,
+    "include_citations": true
+  },
+  "knowledge_base_path": "data/knowledge_bases/white_papers.json"
+}

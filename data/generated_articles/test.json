@@ -1,0 +1,15 @@
+{
+  "topic": "test",
+  "word_count": 0,
+  "citations_count": 0,
+  "sources_used": 10,
+  "generation_timestamp": "2025-10-15T14:55:29.533893",
+  "generation_config": {
+    "topic": "test",
+    "length": "medium",
+    "style": "academic",
+    "max_sources": 10,
+    "include_citations": true
+  },
+  "knowledge_base_path": "data/knowledge_bases/white_papers.json"
+}

@@ -1,0 +1,15 @@
+{
+  "topic": "AI Maturity Processing over the last few years. Where is it going in the future and how has it evolved.",
+  "word_count": 2706,
+  "citations_count": 49,
+  "sources_used": 10,
+  "generation_timestamp": "2025-10-15T16:25:20.281719",
+  "generation_config": {
+    "topic": "AI Maturity Processing over the last few years. Where is it going in the future and how has it evolved.",
+    "length": "medium",
+    "style": "academic",
+    "max_sources": 10,
+    "include_citations": true
+  },
+  "knowledge_base_path": "data/knowledge_bases/white_papers.json"
+}

@@ -1,0 +1,15 @@
+{
+  "topic": "How has AI matured",
+  "word_count": 0,
+  "citations_count": 0,
+  "sources_used": 10,
+  "generation_timestamp": "2025-10-15T14:53:23.840134",
+  "generation_config": {
+    "topic": "How has AI matured",
+    "length": "medium",
+    "style": "academic",
+    "max_sources": 10,
+    "include_citations": true
+  },
+  "knowledge_base_path": "data/knowledge_bases/white_papers.json"
+}

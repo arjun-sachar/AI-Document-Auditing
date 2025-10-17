@@ -41,11 +41,22 @@ class PromptTemplates:
         citation_instruction = ""
         if include_citations:
             citation_instruction = """
-IMPORTANT CITATION REQUIREMENTS:
-- Include proper citations for all claims and facts
+CRITICAL CITATION REQUIREMENTS:
+- For EVERY claim, fact, statistic, or direct quote, include proper citations
 - Use format: [Source X] where X is the source number from the context
+- When using DIRECT QUOTES, put them in quotation marks: "exact quote" [Source X]
+- When PARAPHRASING, clearly indicate it: According to [Source X], the data shows...
+- For STATISTICS, always cite: 79% of organizations [Source X]
+- For SPECIFIC FINDINGS, cite: Research indicates [Source X] that...
+- NEVER make claims without proper citation
 - Ensure all citations are accurate and properly attributed
 - Do not fabricate or misquote information from the sources
+
+CITATION FORMATTING EXAMPLES:
+- Direct quote: "The pandemic accelerated digital transformation" [Source 1]
+- Paraphrase: According to recent studies [Source 2], organizations are prioritizing...
+- Statistics: 79% of state CIOs [Source 3] reported increased AI adoption
+- Research findings: A 2025 survey [Source 4] found that...
 """
         
         prompt = f"""You are an expert writer tasked with creating a high-quality article on the following topic:

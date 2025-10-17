@@ -119,13 +119,13 @@ class ConfidenceScorer:
             return 0.0
         
         total_citations = len(citation_results)
-        accurate_citations = sum(1 for r in citation_results if r.get('is_accurate', False))
+        accurate_citations = sum(1 for r in citation_results if getattr(r, 'is_accurate', False))
         
         # Base accuracy ratio
         accuracy_ratio = accurate_citations / total_citations
         
         # Factor in confidence scores
-        confidence_scores = [r.get('confidence', 0.0) for r in citation_results]
+        confidence_scores = [getattr(r, 'confidence', 0.0) for r in citation_results]
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
         
         # Combine accuracy and confidence
@@ -149,14 +149,14 @@ class ConfidenceScorer:
             return 0.0
         
         # Count citations with preserved context
-        preserved_count = sum(1 for r in context_results if r.get('context_preserved', False))
+        preserved_count = sum(1 for r in context_results if getattr(r, 'context_preserved', False))
         total_count = len(context_results)
         
         # Base preservation ratio
         preservation_ratio = preserved_count / total_count
         
         # Factor in similarity scores
-        similarity_scores = [r.get('semantic_similarity_score', 0.0) for r in context_results]
+        similarity_scores = [getattr(r, 'semantic_similarity_score', 0.0) for r in context_results]
         avg_similarity = sum(similarity_scores) / len(similarity_scores) if similarity_scores else 0.0
         
         # Combine preservation ratio and similarity
@@ -270,17 +270,17 @@ class ConfidenceScorer:
         
         # Citation-related risks
         if citation_results:
-            inaccurate_citations = sum(1 for r in citation_results if not r.get('is_accurate', False))
+            inaccurate_citations = sum(1 for r in citation_results if not getattr(r, 'is_accurate', False))
             if inaccurate_citations > len(citation_results) * 0.3:  # More than 30% inaccurate
                 risk_factors.append("High number of inaccurate citations")
             
-            low_confidence_citations = sum(1 for r in citation_results if r.get('confidence', 0) < 0.5)
+            low_confidence_citations = sum(1 for r in citation_results if getattr(r, 'confidence', 0) < 0.5)
             if low_confidence_citations > 0:
                 risk_factors.append("Citations with low confidence scores")
         
         # Context-related risks
         if context_results:
-            context_issues = sum(1 for r in context_results if not r.get('context_preserved', False))
+            context_issues = sum(1 for r in context_results if not getattr(r, 'context_preserved', False))
             if context_issues > len(context_results) * 0.2:  # More than 20% with context issues
                 risk_factors.append("Multiple citations with context preservation issues")
         

@@ -97,8 +97,8 @@ defaults:
 validation:
   # Model used for citation validation
   citation_model: "claude-3-haiku"
-  # Model used for context analysis
-  context_model: "claude-3-sonnet"
+  # Model used for context analysis (using same model for consistency)
+  context_model: "claude-3-haiku"
   # Model used for confidence scoring
   scoring_model: "claude-3-haiku"
 

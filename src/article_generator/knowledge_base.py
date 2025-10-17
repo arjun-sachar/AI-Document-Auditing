@@ -93,6 +93,7 @@ class KnowledgeBase:
         Returns:
             List of relevant entries with relevance scores
         """
+        logger.debug(f"Searching knowledge base for query: {query}")
         if not self.entries:
             logger.warning("No entries in knowledge base")
             return []
@@ -101,15 +102,33 @@ class KnowledgeBase:
         # more sophisticated techniques like TF-IDF, embeddings, etc.)
         query_lower = query.lower()
         query_words = set(query_lower.split())
+
+        if not query_words:
+            logger.warning("Empty query provided - returning all entries")
+            results = [
+                {
+                    'id': entry.id,
+                    'title': entry.title,
+                    'content': entry.content,
+                    'url': entry.url,
+                    'metadata': entry.metadata,
+                    'relevance_score': 1.0
+                }
+                for entry in self.entries[:max_results]
+            ]
+            return results
         
         scored_entries = []
         
         for entry in self.entries:
             # Calculate relevance score based on keyword matches
+            logger.debug(f"Calculating relevance score for entry: {entry.title}")
             title_matches = sum(1 for word in query_words if word in entry.title.lower())
+            logger.debug(f"Title matches: {title_matches}")
             content_matches = sum(1 for word in query_words if word in entry.content.lower())
-            
+            logger.debug(f"Content matches: {content_matches}")
             # Weight title matches more heavily
+            logger.debug(f"Query words: {query_words}")
             relevance_score = (title_matches * 3 + content_matches) / len(query_words)
             
             if relevance_score >= min_relevance:

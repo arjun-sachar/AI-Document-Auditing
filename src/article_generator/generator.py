@@ -58,6 +58,10 @@ class ArticleGenerator:
         if not relevant_sources:
             raise ValueError(f"No relevant sources found for topic: {topic}")
         
+        # Add source numbers to sources for proper citation mapping
+        for i, source in enumerate(relevant_sources, 1):
+            source['source_number'] = i
+        
         # Create context from sources
         context = self._create_context(relevant_sources)
         
@@ -108,7 +112,18 @@ class ArticleGenerator:
         for i, source in enumerate(sources, 1):
             source_text = f"Source {i}:\n"
             source_text += f"Title: {source.get('title', 'Unknown')}\n"
-            source_text += f"Content: {source.get('content', '')}\n"
+            
+            # Optimize content length based on context window capacity
+            # Claude 3.5 Haiku has 200k token context window - we can use much more!
+            content = source.get('content', '')
+            
+            # Use longer content per source since we have massive context window available
+            max_chars_per_source = 5000  # Increased from 2000 to 5000
+            
+            if len(content) > max_chars_per_source:
+                content = content[:max_chars_per_source] + f"... [Content truncated at {max_chars_per_source} chars for processing efficiency]"
+            
+            source_text += f"Content: {content}\n"
             if 'url' in source:
                 source_text += f"URL: {source['url']}\n"
             source_text += "\n" + "="*50 + "\n\n"

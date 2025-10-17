@@ -104,18 +104,22 @@ def generate_article_command(
             file_handler = FileHandler()
             file_handler.save_text(article['content'], output_path)
             
-            # Also save metadata
+            # Also save full article data with sources for validation
             metadata_path = output_path.with_suffix('.json')
-            article_metadata = {
+            full_article_data = {
                 'topic': topic,
+                'content': article['content'],
                 'word_count': article['metadata']['word_count'],
                 'citations_count': len(article['citations']),
                 'sources_used': len(article['sources']),
+                'sources': article['sources'],  # Include full source data
+                'citations': article['citations'],  # Include citation data
                 'generation_timestamp': article['metadata']['generated_at'],
                 'generation_config': article_config,
-                'knowledge_base_path': knowledge_base
+                'knowledge_base_path': knowledge_base,
+                'metadata': article['metadata']
             }
-            file_handler.save_json(article_metadata, metadata_path)
+            file_handler.save_json(full_article_data, metadata_path)
             
             progress.update(task4, description="Article saved ✓")
         

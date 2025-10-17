@@ -120,8 +120,8 @@ def build(ctx, folder, output, extensions, exclude, max_size, no_recursive, forc
               help='Writing style')
 @click.option('--max-sources', '-ms',
               type=int,
-              default=10,
-              help='Maximum number of sources to use')
+              default=20,
+              help='Maximum number of sources to use (default: 20, max recommended: 30)')
 @click.option('--no-citations', is_flag=True,
               help='Generate article without citations')
 @click.pass_context

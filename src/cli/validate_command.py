@@ -19,7 +19,8 @@ from ..llm.model_selector import ModelSelector
 from ..utils.file_handlers import FileHandler
 from config.settings import get_settings
 
-
+import logging
+logging.getLogger().setLevel(logging.DEBUG)
 console = Console()
 
 
@@ -35,123 +36,152 @@ def validate_article_command(
     
     settings = ctx.obj['settings']
     
+    # Prevent multiple runs
+    if hasattr(validate_article_command, '_running'):
+        console.print("[bold red]Validation already running. Please wait for completion.[/bold red]")
+        return
+    
+    validate_article_command._running = True
+    
     try:
         # Display validation parameters
         display_validation_info(article, knowledge_base, confidence_threshold)
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            
-            # Load article
-            task1 = progress.add_task("Loading article...", total=None)
-            file_handler = FileHandler()
-            
-            # Check if it's a supported document format
-            if file_handler.is_document_supported(article):
-                article_data = file_handler.load_document(article)
-                article_content = article_data['content']
-                progress.update(task1, description=f"Document loaded ✓ ({article_data.get('total_pages', 1)} pages)")
-            else:
-                article_content = file_handler.load_text(article)
-                progress.update(task1, description="Article loaded ✓")
-            
-            # Load knowledge base
-            task2 = progress.add_task("Loading knowledge base...", total=None)
-            kb = KnowledgeBase(Path(knowledge_base))
-            progress.update(task2, description="Knowledge base loaded ✓")
-            
-            # Initialize components
-            task3 = progress.add_task("Initializing validation components...", total=None)
-            
-            # Initialize NLP processor
-            nlp_processor = NLPProcessor()
-            
-            # Initialize LLM clients
-            model_selector = ModelSelector(Path("config/model_config.yaml"))
-            validation_models = model_selector.get_validation_models()
-            
-            citation_llm = AnthropicClient(
-                provider=validation_models['citation'].provider,
-                api_key=validation_models['citation'].api_key,
-                model_name=validation_models['citation'].name,
-                base_url=validation_models['citation'].base_url
-            )
-            
-            context_llm = AnthropicClient(
-                provider=validation_models['context'].provider,
-                api_key=validation_models['context'].api_key,
-                model_name=validation_models['context'].name,
-                base_url=validation_models['context'].base_url
-            )
-            
-            # Initialize validators
-            citation_validator = CitationValidator(nlp_processor, citation_llm)
-            context_validator = ContextValidator(nlp_processor, context_llm)
-            confidence_scorer = ConfidenceScorer()
-            
-            progress.update(task3, description="Validation components initialized ✓")
-            
-            # Extract citations
-            task4 = progress.add_task("Extracting citations...", total=None)
-            citations = nlp_processor.extract_citations(article_content)
-            progress.update(task4, description=f"Found {len(citations)} citations ✓")
-            
-            # Validate citations
-            task5 = progress.add_task("Validating citations...", total=None)
-            kb_sources = kb.search("", max_results=100)  # Get all sources for validation
-            citation_results = citation_validator.validate_citations(
-                article_content, kb_sources, confidence_threshold
-            )
-            progress.update(task5, description="Citation validation completed ✓")
-            
-            # Validate context
-            task6 = progress.add_task("Validating context...", total=None)
-            context_results = context_validator.validate_context(
-                citations, kb_sources, article_content
-            )
-            progress.update(task6, description="Context validation completed ✓")
-            
-            # Calculate confidence scores
-            task7 = progress.add_task("Calculating confidence scores...", total=None)
-            article_metadata = {
-                'topic': 'Unknown',
-                'word_count': len(article_content.split()),
-                'citations_count': len(citations),
-                'sources_used': len(kb_sources)
-            }
-            
-            confidence_score = confidence_scorer.calculate_overall_confidence(
-                citation_results, context_results, article_metadata, kb_sources
-            )
-            progress.update(task7, description="Confidence scoring completed ✓")
-            
-            # Save results
-            task8 = progress.add_task("Saving validation results...", total=None)
-            if output:
-                output_path = Path(output)
-            else:
-                output_path = settings.results_dir / f"validation_results_{Path(article).stem}.json"
-            
-            # Prepare results
-            validation_results = {
-                'article_path': article,
-                'knowledge_base_path': knowledge_base,
-                'validation_timestamp': progress._tasks[0].start_time.isoformat() if progress._tasks else None,
-                'confidence_threshold': confidence_threshold,
-                'overall_confidence': confidence_score.overall_confidence,
-                'citation_results': [result.__dict__ for result in citation_results],
-                'context_results': [result.__dict__ for result in context_results],
-                'confidence_breakdown': confidence_score.detailed_breakdown,
-                'risk_factors': confidence_score.risk_factors,
-                'recommendations': confidence_score.recommendations,
-                'article_metadata': article_metadata
-            }
-            
-            file_handler.save_json(validation_results, output_path)
-            progress.update(task8, description="Validation results saved ✓")
+        # Use simple console output instead of progress bar to avoid looping issues
+        console.print("[bold blue]Starting validation process...[/bold blue]")
+        
+        # Load article
+        console.print("[yellow]Loading article...[/yellow]")
+        file_handler = FileHandler()
+        
+        # Check if it's a supported document format
+        if file_handler.is_document_supported(article):
+            article_data = file_handler.load_document(article)
+            article_content = article_data['content']
+            console.print(f"[green]Document loaded ✓ ({article_data.get('total_pages', 1)} pages)[/green]")
+        else:
+            article_content = file_handler.load_text(article)
+            console.print("[green]Article loaded ✓[/green]")
+        
+        # Load knowledge base
+        console.print("[yellow]Loading knowledge base...[/yellow]")
+        kb = KnowledgeBase(Path(knowledge_base))
+        console.print("[green]Knowledge base loaded ✓[/green]")
+        
+        # Initialize components
+        console.print("[yellow]Initializing validation components...[/yellow]")
+        
+        # Initialize NLP processor
+        nlp_processor = NLPProcessor()
+        
+        # Initialize LLM clients
+        model_selector = ModelSelector(Path("config/model_config.yaml"))
+        validation_models = model_selector.get_validation_models()
+        
+        citation_llm = AnthropicClient(
+            provider=validation_models['citation'].provider,
+            api_key=validation_models['citation'].api_key,
+            model_name=validation_models['citation'].name,
+            base_url=validation_models['citation'].base_url
+        )
+        
+        context_llm = AnthropicClient(
+            provider=validation_models['context'].provider,
+            api_key=validation_models['context'].api_key,
+            model_name=validation_models['context'].name,
+            base_url=validation_models['context'].base_url
+        )
+        
+        # Initialize validators
+        citation_validator = CitationValidator(nlp_processor, citation_llm)
+        context_validator = ContextValidator(nlp_processor, context_llm)
+        confidence_scorer = ConfidenceScorer()
+        
+        console.print("[green]Validation components initialized ✓[/green]")
+        
+        # Extract citations
+        console.print("[yellow]Extracting citations...[/yellow]")
+        citations = nlp_processor.extract_citations(article_content)
+        console.print(f"[green]Found {len(citations)} citations ✓[/green]")
+        
+        # Validate citations
+        console.print("[yellow]Validating citations...[/yellow]")
+        
+        # Load article metadata to get specific sources used
+        article_sources = []
+        metadata_path = Path(article).with_suffix('.json')
+        if metadata_path.exists():
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    article_metadata = json.load(f)
+                
+                # If we have the full article data with sources, use those
+                if 'sources' in article_metadata:
+                    article_sources = article_metadata['sources']
+                else:
+                    # Fallback to knowledge base search if no specific sources stored
+                    article_sources = kb.search("", max_results=100)
+                    
+            except Exception as e:
+                logger.warning(f"Could not load article metadata: {e}")
+                article_sources = kb.search("", max_results=100)
+        else:
+            # No metadata file, use knowledge base search
+            article_sources = kb.search("", max_results=100)
+
+        citation_results = citation_validator.validate_citations(
+            article_content, article_sources, confidence_threshold, citations
+        )
+        console.print("[green]Citation validation completed ✓[/green]")
+        
+        # Validate context
+        console.print("[yellow]Validating context...[/yellow]")
+        context_results = context_validator.validate_context(
+            citations, article_sources, article_content
+        )
+        console.print("[green]Context validation completed ✓[/green]")
+        
+        # Calculate confidence scores
+        console.print("[yellow]Calculating confidence scores...[/yellow]")
+        article_metadata = {
+            'topic': 'Unknown',
+            'word_count': len(article_content.split()),
+            'citations_count': len(citations),
+            'sources_used': len(article_sources)
+        }
+        
+        confidence_score = confidence_scorer.calculate_overall_confidence(
+            citation_results, context_results, article_metadata, article_sources
+        )
+        console.print("[green]Confidence scoring completed ✓[/green]")
+        
+        # Save results
+        console.print("[yellow]Saving validation results...[/yellow]")
+        if output:
+            output_path = Path(output)
+        else:
+            output_path = settings.results_dir / f"validation_results_{Path(article).stem}.json"
+        
+        # Prepare results
+        from datetime import datetime
+        current_time = datetime.now().isoformat()
+        
+        validation_results = {
+            'article_path': article,
+            'knowledge_base_path': knowledge_base,
+            'validation_timestamp': current_time,
+            'confidence_threshold': confidence_threshold,
+            'overall_confidence': confidence_score.overall_confidence,
+            'citation_results': [result.__dict__ for result in citation_results],
+            'context_results': [result.__dict__ for result in context_results],
+            'confidence_breakdown': confidence_score.detailed_breakdown,
+            'risk_factors': confidence_score.risk_factors,
+            'recommendations': confidence_score.recommendations,
+            'article_metadata': article_metadata
+        }
+        
+        file_handler.save_json(validation_results, output_path)
+        console.print("[green]Validation results saved ✓[/green]")
         
         # Display results
         display_validation_results(
@@ -161,6 +191,10 @@ def validate_article_command(
     except Exception as e:
         console.print(f"[bold red]Error validating article:[/bold red] {e}")
         raise click.Abort()
+    finally:
+        # Clear the running flag
+        if hasattr(validate_article_command, '_running'):
+            delattr(validate_article_command, '_running')
 
 
 def display_validation_info(article: str, knowledge_base: str, confidence_threshold: float):

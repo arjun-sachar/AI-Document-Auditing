@@ -178,6 +178,13 @@ class AnthropicClient:
             
         except Exception as e:
             logger.error(f"Error generating text: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    logger.error(f"API Error details: {error_detail}")
+                except:
+                    logger.error(f"API Error response: {e.response.text}")
             response_time = time.time() - start_time
             
             return LLMResponse(

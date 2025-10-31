@@ -34,34 +34,171 @@ def preprocess_text(text: str) -> str:
     return text.strip()
 
 
-def extract_citations(text: str) -> List[str]:
-    """Extract citations from text.
+def extract_citations(text: str) -> List[Dict[str, Any]]:
+    """Extract citations from text with position information using enhanced patterns.
     
     Args:
         text: Input text
         
     Returns:
-        List of extracted citations
+        List of citation objects with text and position data
     """
     citations = []
     
-    # Common citation patterns
+    # Enhanced citation patterns with position tracking
     patterns = [
-        r'\[Source \d+\]',  # [Source 1], [Source 2], etc.
-        r'\[\d+\]',         # [1], [2], etc.
-        r'\([^)]*\d+[^)]*\)',  # (Author, 2023), etc.
-        r'"[^"]*"',         # Quoted text
-        r'\b(?:according to|as stated by|in the words of)\s+[^.]*',  # Attribution phrases
+        # Source references (proper format)
+        (r'\[Source\s+\d+\]', 'source_reference'),           # [Source 1], [Source 2], etc.
+        (r'\(Source\s+\d+\)', 'source_reference'),           # (Source 1), (Source 2), etc.
+        
+        # Malformed citations to clean up
+        (r'\[\?\]', 'malformed_citation'),                   # [?] - incomplete citation
+        (r'\[Source\]', 'malformed_citation'),               # [Source] - missing number
+        (r'\[Source\s+\d+\]\s*\[\d+\]', 'duplicate_citation'), # [Source 1] [1] - duplicate
+        (r'\[Source\s+\d+\]\s*\[\?\]', 'malformed_citation'), # [Source 1] [?] - mixed malformed
+        
+        # Numeric references (fallback)
+        (r'\[\d+\]', 'numeric_reference'),                   # [1], [2], etc.
+        (r'\(\d+\)', 'numeric_reference'),                   # (1), (2), etc.
+        
+        # Quoted text patterns
+        (r'"[^"]*"(?:\s*\[Source\s+\d+\])?', 'quoted_text'), # "quote" [Source X]
+        (r'"[^"]*"(?:\s*\(\d+\))?', 'quoted_text'),         # "quote" (X)
+        
+        # Attribution phrases
+        (r'(?:According to|As stated by|In the words of|Research shows|Studies indicate|Data reveals)\s+[^.]*', 'attribution'),
+        
+        # Statistical claims
+        (r'\d+%[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'statistical'),
+        (r'\d+\s+(?:percent|percentage)[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'statistical'),
+        
+        # Study references
+        (r'(?:A \d{4} study|Research|Analysis|Report)[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'study_reference'),
     ]
     
-    for pattern in patterns:
-        matches = re.findall(pattern, text, re.IGNORECASE)
-        citations.extend(matches)
+    for pattern, citation_type in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            citation_text = match.group()
+            start_pos = match.start()
+            end_pos = match.end()
+            
+            # Extract source number if present
+            source_number = None
+            source_match = re.search(r'(?:Source\s+)?(\d+)', citation_text, re.IGNORECASE)
+            if source_match:
+                source_number = int(source_match.group(1))
+            
+            citation_obj = {
+                "text": citation_text,
+                "type": citation_type,
+                "position": {
+                    "start": start_pos,
+                    "end": end_pos
+                },
+                "validated": False,
+                "source_found": False,
+                "confidence": 0.0,
+                "source_number": source_number,
+                "context": "",
+                "validation_notes": ""
+            }
+            
+            # Skip malformed citations
+            if citation_type in ['malformed_citation', 'duplicate_citation']:
+                citation_obj["validation_notes"] = f"Skipped {citation_type}"
+                continue
+            
+            citations.append(citation_obj)
     
-    # Remove duplicates
-    citations = list(set(citations))
+    # Remove duplicates based on position (same citation at same location)
+    unique_citations = []
+    seen_positions = set()
     
-    return citations
+    for citation in citations:
+        pos_key = (citation["position"]["start"], citation["position"]["end"])
+        if pos_key not in seen_positions:
+            unique_citations.append(citation)
+            seen_positions.add(pos_key)
+    
+    # Sort by position in text
+    unique_citations.sort(key=lambda x: x["position"]["start"])
+    
+    return unique_citations
+
+
+def extract_citations_with_llm(text: str, llm_client=None) -> List[Dict[str, Any]]:
+    """Extract citations using LLM for more sophisticated analysis.
+    
+    Args:
+        text: Input text
+        llm_client: LLM client for advanced extraction
+        
+    Returns:
+        List of citation objects with enhanced analysis
+    """
+    if not llm_client:
+        # Fallback to regex-based extraction
+        return extract_citations(text)
+    
+    try:
+        from article_generator.prompt_templates import PromptTemplates
+        prompt_templates = PromptTemplates()
+        prompt = prompt_templates.get_citation_extraction_prompt(text)
+        
+        # Get LLM response
+        response = llm_client.generate_text_with_metadata(
+            prompt=prompt,
+            max_tokens=4000,
+            temperature=0.1
+        )
+        
+        if not response.success:
+            logger.warning(f"LLM citation extraction failed: {response.error}")
+            return extract_citations(text)
+        
+        # Parse JSON response
+        import json
+        try:
+            result = json.loads(response.content)
+            citations = result.get("citations", [])
+            
+            # Convert LLM response to standard format
+            formatted_citations = []
+            for citation in citations:
+                formatted_citation = {
+                    "text": citation.get("text", ""),
+                    "type": citation.get("type", "reference"),
+                    "position": {
+                        "start": citation.get("position_start", 0),
+                        "end": citation.get("position_end", 0)
+                    },
+                    "validated": False,
+                    "source_found": False,
+                    "confidence": citation.get("confidence", 0.0),
+                    "source_number": None,
+                    "context": citation.get("context", ""),
+                    "validation_notes": citation.get("validation_notes", "")
+                }
+                
+                # Extract source number from source_reference field
+                source_ref = citation.get("source_reference", "")
+                if source_ref:
+                    source_match = re.search(r'(?:Source\s+)?(\d+)', source_ref, re.IGNORECASE)
+                    if source_match:
+                        formatted_citation["source_number"] = int(source_match.group(1))
+                
+                formatted_citations.append(formatted_citation)
+            
+            logger.info(f"LLM extracted {len(formatted_citations)} citations")
+            return formatted_citations
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse LLM citation response: {e}")
+            return extract_citations(text)
+            
+    except Exception as e:
+        logger.warning(f"LLM citation extraction error: {e}")
+        return extract_citations(text)
 
 
 def normalize_text(text: str) -> str:

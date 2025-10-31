@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-from .nlp_processor import NLPProcessor
-from ..llm.anthropic_client import AnthropicClient
+from validation.nlp_processor import NLPProcessor
+from llm.anthropic_client import AnthropicClient
 
 
 logger = logging.getLogger(__name__)

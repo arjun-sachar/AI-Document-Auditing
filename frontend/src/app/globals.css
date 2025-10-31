@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for citation highlighting */
+.citation-highlight {
+  @apply relative inline-block cursor-pointer transition-all duration-200;
+}
+
+.citation-highlight:hover {
+  @apply transform scale-105 shadow-md;
+}
+
+/* Validation color classes */
+.validation-excellent {
+  @apply bg-green-50 text-green-800 border-green-200;
+}
+
+.validation-good {
+  @apply bg-yellow-50 text-yellow-800 border-yellow-200;
+}
+
+.validation-fair {
+  @apply bg-orange-50 text-orange-800 border-orange-200;
+}
+
+.validation-poor {
+  @apply bg-red-50 text-red-800 border-red-200;
+}
+
+/* Loading animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}

@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 import yaml
-from .document_parser import DocumentParser
+from utils.document_parser import DocumentParser
 
 
 logger = logging.getLogger(__name__)

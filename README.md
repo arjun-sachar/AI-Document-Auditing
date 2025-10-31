@@ -19,6 +19,9 @@ AI-Document-Auditing/
 ├── README.md                          # This file
 ├── environment.yml                    # Conda environment configuration
 ├── requirements.txt                   # Python package dependencies
+├── backend_server.py                  # FastAPI backend server
+├── run_cli.py                         # CLI runner script
+├── quick_start.py                     # Quick setup script
 ├── config/
 │   ├── __init__.py
 │   ├── settings.py                   # Application settings
@@ -38,36 +41,48 @@ AI-Document-Auditing/
 │   │   └── confidence_scorer.py      # Confidence scoring algorithms
 │   ├── llm/                          # LLM integration modules
 │   │   ├── __init__.py
-│   │   ├── anthropic_client.py       # Anthropic API client (open-source alternative)
+│   │   ├── anthropic_client.py       # Anthropic API client
 │   │   ├── model_selector.py         # Model selection and configuration
 │   │   └── response_parser.py        # LLM response parsing and processing
 │   ├── utils/                        # Utility modules
 │   │   ├── __init__.py
 │   │   ├── text_processing.py        # Text preprocessing utilities
 │   │   ├── file_handlers.py          # File I/O operations
+│   │   ├── document_parser.py        # Document parsing utilities
+│   │   ├── knowledge_base_builder.py # Knowledge base building utilities
 │   │   └── logging_config.py         # Logging configuration
 │   └── cli/                          # Command-line interface
 │       ├── __init__.py
 │       ├── main.py                   # Main CLI entry point
 │       ├── generate_command.py       # Article generation command
-│       └── validate_command.py       # Document validation command
+│       ├── validate_command.py       # Document validation command
+│       └── build_command.py          # Knowledge base building command
 ├── tests/                            # Test suite
 │   ├── __init__.py
-│   ├── test_generator.py
-│   ├── test_validator.py
-│   └── test_llm_integration.py
+│   ├── test_document_parser.py       # Document parsing tests
+│   ├── test_validator.py             # Validation tests
+│   └── test_llm_integration.py       # LLM integration tests
 ├── examples/                         # Example usage and sample data
 │   ├── sample_knowledge_base.json    # Sample knowledge base
 │   ├── sample_article.md             # Sample generated article
-│   └── usage_examples.py             # Usage examples
+│   ├── sample_research_paper.txt     # Sample research paper
+│   └── build_knowledge_base_example.py # Knowledge base building example
+├── frontend/                         # Next.js frontend application
+│   ├── src/
+│   │   ├── app/                      # Next.js app directory
+│   │   ├── components/               # React components
+│   │   ├── lib/                      # Utility libraries
+│   │   ├── stores/                   # State management
+│   │   └── types/                    # TypeScript type definitions
+│   ├── package.json                  # Frontend dependencies
+│   └── next.config.ts                # Next.js configuration
 ├── data/                             # Data directory (ignored in git)
 │   ├── knowledge_bases/              # Knowledge base files
-│   ├── generated_articles/           # Generated articles
-│   └── validation_results/           # Validation results
-└── docs/                             # Documentation
-    ├── api_reference.md              # API documentation
-    ├── validation_algorithms.md      # Validation algorithm details
-    └── deployment_guide.md           # Deployment instructions
+│   ├── generated_articles/           # Generated articles (empty)
+│   ├── validation_results/           # Validation results (empty)
+│   └── logs/                         # Application logs (empty)
+└── "White Papers, Studies, POVs, Conference Pres"/ # Sample documents
+    └── [various document files]
 ```
 
 ## 🚀 Quick Start
@@ -79,6 +94,18 @@ AI-Document-Auditing/
 - Git
 
 ### Installation
+
+#### Option 1: Automated Installation (Recommended)
+```bash
+# Clone the repository
+git clone <repository-url>
+cd AI-Document-Auditing
+
+# Run the automated installation script
+python install_dependencies.py
+```
+
+#### Option 2: Manual Installation
 
 1. **Clone the repository:**
    ```bash
@@ -92,12 +119,19 @@ AI-Document-Auditing/
    conda activate ai-document-auditing
    ```
 
-3. **Install additional dependencies:**
+3. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure the system:**
+4. **Install frontend dependencies:**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+5. **Configure the system:**
    ```bash
    cp config/model_config.yaml.example config/model_config.yaml
    # Edit the configuration file with your API keys and preferences
@@ -105,7 +139,24 @@ AI-Document-Auditing/
 
 ### Basic Usage
 
-#### Build Knowledge Base from Document Folder
+#### Option 1: Web Interface (Recommended)
+```bash
+# Quick start with automated script
+./start_dev.sh
+
+# OR manually start both servers:
+# Start the backend server
+python backend_server.py
+
+# In another terminal, start the frontend
+cd frontend
+npm run dev
+```
+Then visit `http://localhost:3000` to use the web interface.
+
+#### Option 2: Command Line Interface
+
+**Build Knowledge Base from Document Folder:**
 ```bash
 # Build from your White Papers folder
 python -m src.cli.main build \
@@ -119,7 +170,7 @@ python -m src.cli.main build \
     --extensions pdf,docx
 ```
 
-#### Generate an Article from Knowledge Base
+**Generate an Article from Knowledge Base:**
 ```bash
 python -m src.cli.main generate \
     --knowledge-base data/knowledge_bases/white_papers.json \
@@ -127,7 +178,7 @@ python -m src.cli.main generate \
     --output data/generated_articles/research_article.md
 ```
 
-#### Validate Citations and Context
+**Validate Citations and Context:**
 ```bash
 # Validate from various document formats
 python -m src.cli.main validate \
@@ -228,8 +279,11 @@ The system can process articles from various document formats:
 - **Plain Text** (.txt) - Simple text documents
 - **Markdown** (.md) - Formatted text documents
 - **Rich Text Format** (.rtf) - Formatted documents
+- **OpenDocument** (.odt) - OpenDocument text files
 - **Audio Files** (.mp3, .wav, .m4a) - Audio recordings with transcript extraction
 - **Video Files** (.mp4, .mov, .avi) - Video recordings with audio transcript extraction
+- **Archive Files** (.zip, .rar, .7z) - Compressed folders containing multiple documents
+- **Folder Upload** - Upload entire directories with all contained files
 
 ### Output Formats
 - **Markdown** (.md) - Generated articles with proper formatting
@@ -246,6 +300,9 @@ The system can process articles from various document formats:
 - **File type statistics** - Detailed processing statistics for each file type
 - **Table extraction** - Process tabular data in documents
 - **Format preservation** - Maintain document structure where possible
+- **Archive extraction** - Automatically extract and process files from ZIP, RAR, and 7Z archives
+- **Folder upload** - Upload entire directories with all contained files
+- **Batch processing** - Process multiple files simultaneously for efficient knowledge base building
 
 ## 📊 Output Formats
 

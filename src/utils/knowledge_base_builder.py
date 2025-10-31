@@ -9,8 +9,8 @@ import hashlib
 import uuid
 from datetime import datetime
 
-from .document_parser import DocumentParser
-from .file_handlers import FileHandler
+from utils.document_parser import DocumentParser
+from utils.file_handlers import FileHandler
 
 
 logger = logging.getLogger(__name__)

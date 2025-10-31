@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from fuzzywuzzy import fuzz, process
 
-from .nlp_processor import NLPProcessor
-from ..llm.anthropic_client import AnthropicClient
+from validation.nlp_processor import NLPProcessor
+from llm.anthropic_client import AnthropicClient
 
 
 logger = logging.getLogger(__name__)

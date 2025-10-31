@@ -1,9 +1,15 @@
-"""Text processing utilities."""
+"""Text processing utilities.
 
-import re
+This module provides utilities for:
+- Text preprocessing and normalization
+- Citation extraction from articles (regex and LLM-based)
+- Quote text cleaning and source marker removal
+- Text similarity calculations
+"""
+
 import logging
-from typing import List, Dict, Any, Optional
-from pathlib import Path
+import re
+from typing import Any, Dict, List, Optional
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +41,10 @@ def preprocess_text(text: str) -> str:
 
 
 def extract_citations(text: str) -> List[Dict[str, Any]]:
-    """Extract citations from text with position information using enhanced patterns.
+    """Extract citations by finding [Source X] markers and looking backward for the quote.
+    
+    The correct approach: Find [Source X] markers, then look BEFORE them to extract
+    the quoted text that the source is referencing.
     
     Args:
         text: Input text
@@ -45,55 +54,41 @@ def extract_citations(text: str) -> List[Dict[str, Any]]:
     """
     citations = []
     
-    # Enhanced citation patterns with position tracking
-    patterns = [
-        # Source references (proper format)
-        (r'\[Source\s+\d+\]', 'source_reference'),           # [Source 1], [Source 2], etc.
-        (r'\(Source\s+\d+\)', 'source_reference'),           # (Source 1), (Source 2), etc.
-        
-        # Malformed citations to clean up
-        (r'\[\?\]', 'malformed_citation'),                   # [?] - incomplete citation
-        (r'\[Source\]', 'malformed_citation'),               # [Source] - missing number
-        (r'\[Source\s+\d+\]\s*\[\d+\]', 'duplicate_citation'), # [Source 1] [1] - duplicate
-        (r'\[Source\s+\d+\]\s*\[\?\]', 'malformed_citation'), # [Source 1] [?] - mixed malformed
-        
-        # Numeric references (fallback)
-        (r'\[\d+\]', 'numeric_reference'),                   # [1], [2], etc.
-        (r'\(\d+\)', 'numeric_reference'),                   # (1), (2), etc.
-        
-        # Quoted text patterns
-        (r'"[^"]*"(?:\s*\[Source\s+\d+\])?', 'quoted_text'), # "quote" [Source X]
-        (r'"[^"]*"(?:\s*\(\d+\))?', 'quoted_text'),         # "quote" (X)
-        
-        # Attribution phrases
-        (r'(?:According to|As stated by|In the words of|Research shows|Studies indicate|Data reveals)\s+[^.]*', 'attribution'),
-        
-        # Statistical claims
-        (r'\d+%[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'statistical'),
-        (r'\d+\s+(?:percent|percentage)[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'statistical'),
-        
-        # Study references
-        (r'(?:A \d{4} study|Research|Analysis|Report)[^.]*(?:\[Source\s+\d+\]|\(\d+\))?', 'study_reference'),
-    ]
+    # Find all [Source X] markers in the text
+    source_pattern = r'\[Source\s+(\d+)\]'
     
-    for pattern, citation_type in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            citation_text = match.group()
-            start_pos = match.start()
-            end_pos = match.end()
+    for match in re.finditer(source_pattern, text, re.IGNORECASE):
+        source_number = int(match.group(1))
+        source_marker_start = match.start()
+        source_marker_end = match.end()
+        
+        # Look backward from the source marker to find the quote
+        text_before_source = text[:source_marker_start]
+        
+        # Try to find the quote that precedes this source marker
+        # Pattern 1: Look for quoted text immediately before [Source X]
+        # Example: "this is a quote" [Source 1]
+        quote_pattern = r'"([^"]+)"\s*$'
+        quote_match = re.search(quote_pattern, text_before_source)
+        
+        if quote_match:
+            # Found a quote before the source marker
+            quote_text = quote_match.group(1).strip()
+            quote_start = quote_match.start()
+            quote_end = quote_match.end()
             
-            # Extract source number if present
-            source_number = None
-            source_match = re.search(r'(?:Source\s+)?(\d+)', citation_text, re.IGNORECASE)
-            if source_match:
-                source_number = int(source_match.group(1))
+            # Only include if quote is substantial (at least 15 words)
+            word_count = len(quote_text.split())
+            if word_count < 15:
+                logger.debug(f"Skipping short quote ({word_count} words): {quote_text[:50]}...")
+                continue
             
             citation_obj = {
-                "text": citation_text,
-                "type": citation_type,
+                "text": f'"{quote_text}"',  # Include the quotes in the text
+                "type": "quoted_text",
                 "position": {
-                    "start": start_pos,
-                    "end": end_pos
+                    "start": quote_start,
+                    "end": source_marker_end  # Include the source marker in the position
                 },
                 "validated": False,
                 "source_found": False,
@@ -103,26 +98,23 @@ def extract_citations(text: str) -> List[Dict[str, Any]]:
                 "validation_notes": ""
             }
             
-            # Skip malformed citations
-            if citation_type in ['malformed_citation', 'duplicate_citation']:
-                citation_obj["validation_notes"] = f"Skipped {citation_type}"
-                continue
-            
             citations.append(citation_obj)
+            logger.debug(f"Extracted citation: {quote_text[:80]}... [Source {source_number}]")
+        else:
+            # No quote found - this is likely a source-only reference, skip it
+            logger.debug(f"Skipping source-only reference [Source {source_number}] at position {source_marker_start}")
+            continue
     
-    # Remove duplicates based on position (same citation at same location)
+    # Remove duplicate citations (same position)
     unique_citations = []
     seen_positions = set()
-    
     for citation in citations:
         pos_key = (citation["position"]["start"], citation["position"]["end"])
         if pos_key not in seen_positions:
             unique_citations.append(citation)
             seen_positions.add(pos_key)
     
-    # Sort by position in text
-    unique_citations.sort(key=lambda x: x["position"]["start"])
-    
+    logger.info(f"Extracted {len(unique_citations)} unique citations from text")
     return unique_citations
 
 
@@ -186,6 +178,18 @@ def extract_citations_with_llm(text: str, llm_client=None) -> List[Dict[str, Any
                     source_match = re.search(r'(?:Source\s+)?(\d+)', source_ref, re.IGNORECASE)
                     if source_match:
                         formatted_citation["source_number"] = int(source_match.group(1))
+                
+                # Clean the citation text - remove any source markers that might be included
+                citation_text = formatted_citation.get("text", "")
+                if citation_text:
+                    # Remove source markers from text
+                    citation_text = re.sub(r'\s*\[Source\s+\d+\]', '', citation_text)
+                    citation_text = re.sub(r'\s*\(Source\s+\d+\)', '', citation_text)
+                    citation_text = re.sub(r'\s*\[\?\]', '', citation_text)
+                    # If text is empty after cleaning, skip this citation
+                    if not citation_text.strip() or citation_text.strip() == '""':
+                        continue
+                    formatted_citation["text"] = citation_text.strip()
                 
                 formatted_citations.append(formatted_citation)
             

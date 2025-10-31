@@ -1,6 +1,7 @@
 """Document parsing utilities for PDF and Word documents."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
 import io
@@ -595,21 +596,59 @@ class DocumentParser:
             audio_file = str(file_path)
             if file_path.suffix.lower() != '.wav':
                 # Convert to WAV using pydub
-                audio = AudioSegment.from_file(file_path)
-                # Create temporary WAV file
-                import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav:
+                # pydub can handle m4a files - it uses ffmpeg under the hood
+                try:
+                    # Try to load with explicit format for m4a files
+                    if file_path.suffix.lower() == '.m4a':
+                        audio = AudioSegment.from_file(file_path, format="m4a")
+                    else:
+                        audio = AudioSegment.from_file(file_path)
+                    
+                    # Create temporary WAV file
+                    import tempfile
+                    import os
+                    temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                    temp_wav.close()
                     audio.export(temp_wav.name, format="wav")
                     audio_file = temp_wav.name
+                except Exception as e:
+                    logger.warning(f"Could not convert {file_path.suffix} to WAV: {e}")
+                    # Fallback: try without format specification
+                    try:
+                        audio = AudioSegment.from_file(str(file_path))
+                        import tempfile
+                        import os
+                        temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+                        temp_wav.close()
+                        audio.export(temp_wav.name, format="wav")
+                        audio_file = temp_wav.name
+                    except Exception as e2:
+                        logger.error(f"Failed to convert audio file {file_path}: {e2}")
+                        return f"[Audio conversion failed: {e2}]"
             
             # Extract transcript
-            with sr.AudioFile(audio_file) as source:
-                audio_data = recognizer.record(source)
-                transcript = recognizer.recognize_google(audio_data)
-                return transcript
+            try:
+                with sr.AudioFile(audio_file) as source:
+                    audio_data = recognizer.record(source)
+                    transcript = recognizer.recognize_google(audio_data)
+                    return transcript
+            finally:
+                # Clean up temporary WAV file if we created one
+                if audio_file != str(file_path) and os.path.exists(audio_file):
+                    try:
+                        os.unlink(audio_file)
+                    except Exception as e:
+                        logger.warning(f"Could not delete temporary audio file {audio_file}: {e}")
                 
         except Exception as e:
             logger.warning(f"Could not extract audio transcript from {file_path}: {e}")
+            # Clean up temp file on error
+            if 'temp_wav' in locals() and 'audio_file' in locals() and audio_file != str(file_path):
+                try:
+                    if os.path.exists(audio_file):
+                        os.unlink(audio_file)
+                except:
+                    pass
             return f"[Audio transcript extraction failed: {e}]"
     
     def _extract_video_transcript(self, file_path: Path) -> str:

@@ -91,24 +91,80 @@ class ContextValidator:
                     logger.warning(f"Batch context validation failed for chunk {i//chunk_size + 1}, falling back to individual validation")
                     # Fallback to individual validation for this chunk
                     for citation in chunk:
-                        source_match = self._find_source_for_citation(citation, sources)
-                        if source_match:
-                            result = self._validate_single_context(citation, source_match, article_content)
-                            all_batch_results.append(result)
+                        # Check if source-only citation
+                        import re
+                        is_source_only = False
+                        source_num = None
+                        
+                        source_match_pattern = re.search(r'\[Source\s+(\d+)\]|\(Source\s+(\d+)\)', citation, re.IGNORECASE)
+                        if source_match_pattern:
+                            is_source_only = True
+                            source_num = int(source_match_pattern.group(1) or source_match_pattern.group(2))
+                        
+                        if is_source_only and source_num:
+                            # Handle source-only citation
+                            matching_source = None
+                            for source in sources:
+                                if source.get('source_number') == source_num:
+                                    matching_source = source
+                                    break
+                            
+                            if matching_source:
+                                article_context = self._extract_article_context(citation, article_content)
+                                source_content = matching_source.get('content', '')
+                                semantic_score = self._calculate_semantic_similarity(
+                                    article_context, source_content[:len(article_context) * 2] if source_content else ""
+                                )
+                                context_preserved = semantic_score >= 0.4 and len(source_content) > 0
+                                confidence = min(0.8, 0.6 + (semantic_score * 0.2)) if source_content else 0.3
+                                
+                                result = ContextValidationResult(
+                                    citation_text=citation,
+                                    original_context=source_content[:500] if source_content else "",
+                                    article_context=article_context,
+                                    context_preserved=context_preserved,
+                                    context_similarity_score=semantic_score,
+                                    semantic_similarity_score=semantic_score,
+                                    meaning_preserved=context_preserved,
+                                    issues=[] if source_content else ["Source has no content"],
+                                    confidence=confidence,
+                                    detailed_analysis=f"Source-only citation - validated based on source validity and context alignment"
+                                )
+                                all_batch_results.append(result)
+                            else:
+                                result = ContextValidationResult(
+                                    citation_text=citation,
+                                    original_context="",
+                                    article_context=self._extract_article_context(citation, article_content),
+                                    context_preserved=False,
+                                    context_similarity_score=0.0,
+                                    semantic_similarity_score=0.0,
+                                    meaning_preserved=False,
+                                    issues=[f"Source {source_num} not found"],
+                                    confidence=0.1,
+                                    detailed_analysis=f"Source-only citation - source {source_num} does not exist"
+                                )
+                                all_batch_results.append(result)
                         else:
-                            result = ContextValidationResult(
-                                citation_text=citation,
-                                original_context="",
-                                article_context=self._extract_article_context(citation, article_content),
-                                context_preserved=False,
-                                context_similarity_score=0.0,
-                                semantic_similarity_score=0.0,
-                                meaning_preserved=False,
-                                issues=["Source not found for citation"],
-                                confidence=0.0,
-                                detailed_analysis="Unable to validate context - source not found"
-                            )
-                            all_batch_results.append(result)
+                            # Regular citation
+                            source_match = self._find_source_for_citation(citation, sources)
+                            if source_match:
+                                result = self._validate_single_context(citation, source_match, article_content)
+                                all_batch_results.append(result)
+                            else:
+                                result = ContextValidationResult(
+                                    citation_text=citation,
+                                    original_context="",
+                                    article_context=self._extract_article_context(citation, article_content),
+                                    context_preserved=False,
+                                    context_similarity_score=0.0,
+                                    semantic_similarity_score=0.0,
+                                    meaning_preserved=False,
+                                    issues=["Source not found for citation"],
+                                    confidence=0.0,
+                                    detailed_analysis="Unable to validate context - source not found"
+                                )
+                                all_batch_results.append(result)
             
             logger.info(f"Batch context validation completed for {len(all_batch_results)} citations")
             return all_batch_results
@@ -116,29 +172,94 @@ class ContextValidator:
         # Fallback to individual validation
         validation_results = []
         for citation in citations:
-            # Find the source that contains this citation
-            source_match = self._find_source_for_citation(citation, sources)
+            # Check if this is a source-only citation (format: [Source X] or (Source X))
+            import re
+            is_source_only = False
+            source_num = None
             
-            if source_match:
-                result = self._validate_single_context(
-                    citation, source_match, article_content
-                )
-                validation_results.append(result)
+            source_match_pattern = re.search(r'\[Source\s+(\d+)\]|\(Source\s+(\d+)\)', citation, re.IGNORECASE)
+            if source_match_pattern:
+                is_source_only = True
+                source_num = int(source_match_pattern.group(1) or source_match_pattern.group(2))
+            
+            if is_source_only and source_num:
+                # Handle source-only citations - validate based on source validity and article context
+                matching_source = None
+                for source in sources:
+                    if source.get('source_number') == source_num or (hasattr(source, 'source_number') and source.source_number == source_num):
+                        matching_source = source
+                        break
+                
+                if matching_source:
+                    # Extract article context around the source reference
+                    article_context = self._extract_article_context(citation, article_content)
+                    
+                    # Get source content
+                    source_content = matching_source.get('content', '')
+                    
+                    # Calculate semantic similarity between article context and source content
+                    semantic_score = self._calculate_semantic_similarity(
+                        article_context, source_content[:len(article_context) * 2] if source_content else ""
+                    )
+                    
+                    # For source-only citations, context is "preserved" if source is valid and context aligns
+                    context_preserved = semantic_score >= 0.4 and len(source_content) > 0
+                    
+                    # Calculate confidence based on source validity and context alignment
+                    confidence = min(0.8, 0.6 + (semantic_score * 0.2)) if source_content else 0.3
+                    
+                    result = ContextValidationResult(
+                        citation_text=citation,
+                        original_context=source_content[:500] if source_content else "",
+                        article_context=article_context,
+                        context_preserved=context_preserved,
+                        context_similarity_score=semantic_score,
+                        semantic_similarity_score=semantic_score,
+                        meaning_preserved=context_preserved,
+                        issues=[] if source_content else ["Source has no content"],
+                        confidence=confidence,
+                        detailed_analysis=f"Source-only citation - source {source_num} is valid and article context shows {semantic_score:.1%} alignment with source material"
+                    )
+                    validation_results.append(result)
+                else:
+                    # Source number doesn't exist
+                    result = ContextValidationResult(
+                        citation_text=citation,
+                        original_context="",
+                        article_context=self._extract_article_context(citation, article_content),
+                        context_preserved=False,
+                        context_similarity_score=0.0,
+                        semantic_similarity_score=0.0,
+                        meaning_preserved=False,
+                        issues=[f"Source {source_num} not found in available sources"],
+                        confidence=0.1,
+                        detailed_analysis=f"Source-only citation - source {source_num} does not exist"
+                    )
+                    validation_results.append(result)
             else:
-                # Create result for unmatched citation
-                result = ContextValidationResult(
-                    citation_text=citation,
-                    original_context="",
-                    article_context=self._extract_article_context(citation, article_content),
-                    context_preserved=False,
-                    context_similarity_score=0.0,
-                    semantic_similarity_score=0.0,
-                    meaning_preserved=False,
-                    issues=["Source not found for citation"],
-                    confidence=0.0,
-                    detailed_analysis="Unable to validate context - source not found"
-                )
-                validation_results.append(result)
+                # Regular citation with quote text - find source that contains this citation
+                source_match = self._find_source_for_citation(citation, sources)
+                
+                if source_match:
+                    result = self._validate_single_context(
+                        citation, source_match, article_content
+                    )
+                    validation_results.append(result)
+                else:
+                    # Create result for unmatched citation
+                    result = ContextValidationResult(
+                        citation_text=citation,
+                        original_context="",
+                        article_context=self._extract_article_context(citation, article_content),
+                        context_preserved=False,
+                        context_similarity_score=0.0,
+                        semantic_similarity_score=0.0,
+                        meaning_preserved=False,
+                        issues=["Source not found for citation"],
+                        confidence=0.0,
+                        detailed_analysis="Unable to validate context - source not found"
+                    )
+                    validation_results.append(result)
         
         logger.info(f"Context validation complete for {len(validation_results)} citations")
         return validation_results

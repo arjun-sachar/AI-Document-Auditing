@@ -1,12 +1,23 @@
-"""Confidence scoring algorithms for validation results."""
+"""Confidence scoring algorithms for validation results.
+
+This module calculates overall confidence scores by combining:
+- Citation accuracy (40% weight)
+- Context preservation (30% weight)
+- Source reliability (20% weight)
+- Scholarly coherence (10% weight)
+
+Confidence scores range from 0.0-1.0 and are classified as:
+- High: ≥0.8
+- Medium: 0.6-0.79
+- Low: <0.6
+"""
 
 import logging
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-import joblib
 
 
 logger = logging.getLogger(__name__)
@@ -110,7 +121,7 @@ class ConfidenceScorer:
         """Calculate citation accuracy score.
         
         Args:
-            citation_results: Citation validation results
+            citation_results: Citation validation results (can be dicts or objects)
             
         Returns:
             Citation accuracy score between 0 and 1
@@ -118,18 +129,26 @@ class ConfidenceScorer:
         if not citation_results:
             return 0.0
         
+        def get_value(result, key, default=0.0):
+            """Get value from result, handling both dict and object types."""
+            if isinstance(result, dict):
+                return result.get(key, default)
+            else:
+                return getattr(result, key, default)
+        
         total_citations = len(citation_results)
-        accurate_citations = sum(1 for r in citation_results if getattr(r, 'is_accurate', False))
+        accurate_citations = sum(1 for r in citation_results if get_value(r, 'is_accurate', False))
         
         # Base accuracy ratio
-        accuracy_ratio = accurate_citations / total_citations
+        accuracy_ratio = accurate_citations / total_citations if total_citations > 0 else 0.0
         
         # Factor in confidence scores
-        confidence_scores = [getattr(r, 'confidence', 0.0) for r in citation_results]
+        confidence_scores = [get_value(r, 'confidence', 0.0) for r in citation_results]
         avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
         
-        # Combine accuracy and confidence
-        final_score = (accuracy_ratio * 0.7) + (avg_confidence * 0.3)
+        # Combine accuracy and confidence (weighted: 60% accuracy ratio, 40% average confidence)
+        # This ensures that both accuracy (exact matches) and confidence (quality of matches) matter
+        final_score = (accuracy_ratio * 0.6) + (avg_confidence * 0.4)
         
         return min(1.0, max(0.0, final_score))
     
@@ -140,7 +159,7 @@ class ConfidenceScorer:
         """Calculate context preservation score.
         
         Args:
-            context_results: Context validation results
+            context_results: Context validation results (can be dicts or objects)
             
         Returns:
             Context preservation score between 0 and 1
@@ -148,19 +167,33 @@ class ConfidenceScorer:
         if not context_results:
             return 0.0
         
+        def get_value(result, key, default=0.0):
+            """Get value from result, handling both dict and object types."""
+            if isinstance(result, dict):
+                return result.get(key, default)
+            else:
+                return getattr(result, key, default)
+        
         # Count citations with preserved context
-        preserved_count = sum(1 for r in context_results if getattr(r, 'context_preserved', False))
+        preserved_count = sum(1 for r in context_results if get_value(r, 'context_preserved', False))
         total_count = len(context_results)
         
         # Base preservation ratio
-        preservation_ratio = preserved_count / total_count
+        preservation_ratio = preserved_count / total_count if total_count > 0 else 0.0
         
-        # Factor in similarity scores
-        similarity_scores = [getattr(r, 'semantic_similarity_score', 0.0) for r in context_results]
-        avg_similarity = sum(similarity_scores) / len(similarity_scores) if similarity_scores else 0.0
+        # Factor in similarity scores (context similarity and semantic similarity)
+        context_similarity_scores = [get_value(r, 'context_similarity_score', 0.0) for r in context_results]
+        semantic_similarity_scores = [get_value(r, 'semantic_similarity_score', 0.0) for r in context_results]
+        avg_context_similarity = sum(context_similarity_scores) / len(context_similarity_scores) if context_similarity_scores else 0.0
+        avg_semantic_similarity = sum(semantic_similarity_scores) / len(semantic_similarity_scores) if semantic_similarity_scores else 0.0
+        avg_similarity = (avg_context_similarity + avg_semantic_similarity) / 2.0
         
-        # Combine preservation ratio and similarity
-        final_score = (preservation_ratio * 0.6) + (avg_similarity * 0.4)
+        # Factor in confidence scores from validation
+        confidence_scores = [get_value(r, 'confidence', 0.0) for r in context_results]
+        avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.0
+        
+        # Combine preservation ratio (40%), similarity (40%), and confidence (20%)
+        final_score = (preservation_ratio * 0.4) + (avg_similarity * 0.4) + (avg_confidence * 0.2)
         
         return min(1.0, max(0.0, final_score))
     
@@ -268,21 +301,37 @@ class ConfidenceScorer:
         """
         risk_factors = []
         
+        def get_value(result, key, default=0.0):
+            """Get value from result, handling both dict and object types."""
+            if isinstance(result, dict):
+                return result.get(key, default)
+            else:
+                return getattr(result, key, default)
+        
         # Citation-related risks
         if citation_results:
-            inaccurate_citations = sum(1 for r in citation_results if not getattr(r, 'is_accurate', False))
+            inaccurate_citations = sum(1 for r in citation_results if not get_value(r, 'is_accurate', False))
             if inaccurate_citations > len(citation_results) * 0.3:  # More than 30% inaccurate
                 risk_factors.append("High number of inaccurate citations")
             
-            low_confidence_citations = sum(1 for r in citation_results if getattr(r, 'confidence', 0) < 0.5)
-            if low_confidence_citations > 0:
-                risk_factors.append("Citations with low confidence scores")
+            low_confidence_citations = sum(1 for r in citation_results if get_value(r, 'confidence', 0) < 0.5)
+            if low_confidence_citations > len(citation_results) * 0.3:  # More than 30% low confidence
+                risk_factors.append(f"{low_confidence_citations} citations with low confidence scores (<50%)")
+            
+            # Check for citations with zero confidence
+            zero_confidence = sum(1 for r in citation_results if get_value(r, 'confidence', 0) == 0.0)
+            if zero_confidence > 0:
+                risk_factors.append(f"{zero_confidence} citations with zero confidence (unvalidated)")
         
         # Context-related risks
         if context_results:
-            context_issues = sum(1 for r in context_results if not getattr(r, 'context_preserved', False))
+            context_issues = sum(1 for r in context_results if not get_value(r, 'context_preserved', False))
             if context_issues > len(context_results) * 0.2:  # More than 20% with context issues
-                risk_factors.append("Multiple citations with context preservation issues")
+                risk_factors.append(f"{context_issues} citations with context preservation issues")
+            
+            low_context_confidence = sum(1 for r in context_results if get_value(r, 'confidence', 0) < 0.6)
+            if low_context_confidence > len(context_results) * 0.3:
+                risk_factors.append(f"{low_context_confidence} citations with low context confidence")
         
         # Article structure risks
         word_count = article_metadata.get('word_count', 0)

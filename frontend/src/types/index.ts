@@ -61,6 +61,10 @@ export interface Citation {
   confidence?: number
   isAccurate?: boolean
   issues?: string[]
+  sourceExcerpt?: string
+  articleExcerpt?: string
+  contextAlignment?: number
+  quoteVerbatim?: boolean
 }
 
 export interface ValidationResults {

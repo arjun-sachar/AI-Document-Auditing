@@ -43,6 +43,8 @@ export default function UploadPage() {
       'audio/mpeg',
       'audio/wav',
       'audio/mp4',
+      'audio/m4a',
+      'audio/x-m4a',
       'application/zip',
       'application/x-zip-compressed',
       'application/x-rar-compressed',
@@ -207,7 +209,6 @@ export default function UploadPage() {
               <CardTitle>Upload Documents</CardTitle>
             </CardHeader>
             <CardContent>
-              {console.log('Current uploads state:', uploads)}
               <FileUpload
                 onFilesSelected={handleFilesSelected}
                 onFileRemove={handleFileRemove}
@@ -227,6 +228,8 @@ export default function UploadPage() {
                   'audio/mpeg',
                   'audio/wav',
                   'audio/mp4',
+                  'audio/m4a',
+                  'audio/x-m4a',
                   'application/zip',
                   'application/x-zip-compressed',
                   'application/x-rar-compressed',

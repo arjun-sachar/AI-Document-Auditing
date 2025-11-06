@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useState, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -43,6 +43,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     'audio/mpeg',
     'audio/wav',
     'audio/mp4',
+    'audio/m4a',
+    'audio/x-m4a',
     'application/zip',
     'application/x-zip-compressed',
     'application/x-rar-compressed',
@@ -53,10 +55,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 }) => {
   console.log('FileUpload component received uploads:', uploads)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files')
   const [kbName, setKbName] = useState('')
   const [kbDescription, setKbDescription] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files')
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -116,16 +118,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     }
   }
 
-  const handleCreateKnowledgeBase = () => {
-    if (kbName.trim()) {
-      onCreateKnowledgeBase(kbName.trim(), kbDescription.trim() || undefined)
+  const canCreateKB = uploads.length > 0 && uploads.every(upload => upload.status === 'completed')
+  
+  useEffect(() => {
+    if (!isCreatingKB && uploads.length === 0) {
       setKbName('')
       setKbDescription('')
       setShowCreateForm(false)
     }
-  }
+  }, [isCreatingKB, uploads.length])
 
-  const canCreateKB = uploads.length > 0 && uploads.every(upload => upload.status === 'completed')
+  const handleCreateKnowledgeBase = () => {
+    if (!kbName.trim()) {
+      return
+    }
+
+    onCreateKnowledgeBase(kbName.trim(), kbDescription.trim() || undefined)
+  }
 
   return (
     <div className={cn('w-full', className)}>
@@ -230,11 +239,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       )}
 
-      {/* Debug: Show uploads count */}
-      <div className="mt-4 p-2 bg-gray-100 rounded text-sm">
-        Debug: {uploads.length} files in uploads array
-      </div>
-
       {uploads.length > 0 && (
         <div className="mt-6 space-y-3">
           <h3 className="text-lg font-medium text-gray-900">Uploaded Files ({uploads.length})</h3>
@@ -296,74 +300,95 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       )}
 
-      {/* Knowledge Base Creation Section */}
       {canCreateKB && (
         <div className="mt-6">
           <Card>
             <CardContent className="p-6">
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Ready to Create Knowledge Base
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  {uploads.length} files uploaded successfully. Give your knowledge base a name to continue.
-                </p>
-                
-                {!showCreateForm ? (
-                  <Button 
-                    onClick={() => setShowCreateForm(true)}
-                    className="w-full"
-                  >
-                    Create Knowledge Base
-                  </Button>
-                ) : (
-                  <div className="space-y-4">
+              {isCreatingKB ? (
+                <div className="text-center">
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Knowledge Base Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={kbName}
-                        onChange={(e) => setKbName(e.target.value)}
-                        placeholder="Enter knowledge base name..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description (Optional)
-                      </label>
-                      <textarea
-                        value={kbDescription}
-                        onChange={(e) => setKbDescription(e.target.value)}
-                        placeholder="Enter a description for your knowledge base..."
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    
-                    <div className="flex space-x-3">
-                      <Button
-                        onClick={handleCreateKnowledgeBase}
-                        disabled={!kbName.trim() || isCreatingKB}
-                        loading={isCreatingKB}
-                        className="flex-1"
-                      >
-                        {isCreatingKB ? 'Creating...' : 'Create Knowledge Base'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowCreateForm(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Creating Knowledge Base
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Processing {uploads.length} files... Please wait.
+                      </p>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-center">
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Ready to Create Knowledge Base
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {uploads.length} files uploaded successfully. Provide a name and optional description to continue.
+                    </p>
+                  </div>
+
+                  {!showCreateForm ? (
+                    <Button
+                      onClick={() => setShowCreateForm(true)}
+                      className="w-full"
+                    >
+                      Create Knowledge Base
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Knowledge Base Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={kbName}
+                          onChange={(event) => setKbName(event.target.value)}
+                          placeholder="Enter knowledge base name..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Description (Optional)
+                        </label>
+                        <textarea
+                          value={kbDescription}
+                          onChange={(event) => setKbDescription(event.target.value)}
+                          placeholder="Enter a description for your knowledge base..."
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex space-x-3">
+                        <Button
+                          onClick={handleCreateKnowledgeBase}
+                          disabled={!kbName.trim() || isCreatingKB}
+                          loading={isCreatingKB}
+                          className="flex-1"
+                        >
+                          {isCreatingKB ? 'Creating...' : 'Create Knowledge Base'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowCreateForm(false)
+                            setKbName('')
+                            setKbDescription('')
+                          }}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

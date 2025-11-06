@@ -2,7 +2,7 @@
 
 A comprehensive document validation processor that generates articles from knowledge bases and validates citations, quotes, and context using NLP and LLM techniques. This system provides confidence scores for citation accuracy and helps identify potential hallucination in AI-generated content.
 
-## 🎯 Project Overview
+## Project Overview
 
 The AI Document Auditing System is designed to address the critical need for validating AI-generated content, particularly focusing on:
 
@@ -14,7 +14,7 @@ The AI Document Auditing System is designed to address the critical need for val
 - **Source Excerpt Extraction**: Automatically extract relevant passages from sources to verify citations
 - **Article Quality Control**: Validate prompt separation, quote formatting, word count compliance, and context ratings
 
-## ✨ Key Features
+## Key Features
 
 ### Smart Citation Validation
 - **Direct Quote Focus**: Only validates actual quoted text, ignoring references and attributions for efficiency
@@ -36,7 +36,7 @@ The AI Document Auditing System is designed to address the critical need for val
 - **Verified Badges**: See which citations have LLM-verified source excerpts
 - **ESC Key Support**: Quick close for citation details panel
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 AI-Document-Auditing/
@@ -109,7 +109,7 @@ AI-Document-Auditing/
     └── [various document files]
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -216,7 +216,7 @@ python -m src.cli.main validate \
     --knowledge-base examples/sample_knowledge_base.json
 ```
 
-## 📦 Key Dependencies
+## Key Dependencies
 
 ### Core NLP Libraries
 - **spaCy**: Advanced natural language processing for text analysis
@@ -254,7 +254,7 @@ python -m src.cli.main validate \
 - **rich**: Rich text and beautiful formatting in terminal
 - **loguru**: Advanced logging capabilities
 
-## 🔧 Configuration
+## Configuration
 
 The system uses YAML configuration files for flexible setup:
 
@@ -262,7 +262,7 @@ The system uses YAML configuration files for flexible setup:
 - **Validation Settings**: Confidence thresholds, validation criteria, and scoring weights
 - **Knowledge Base Settings**: Data sources, indexing options, and search parameters
 
-## 🏗️ Knowledge Base Building
+## Knowledge Base Building
 
 ### Automatic Document Processing
 The system can automatically build knowledge bases from folders containing various document formats:
@@ -279,7 +279,7 @@ The system can automatically build knowledge bases from folders containing vario
 - **Size Limits**: Skip files larger than specified size
 - **Update Mode**: Update existing knowledge bases with new documents
 
-## 🧪 Validation Algorithms
+## Validation Algorithms
 
 ### Citation Validation
 The system uses a sophisticated **LLM-driven validation pipeline** that focuses on direct quotes:
@@ -308,7 +308,7 @@ The system uses a sophisticated **LLM-driven validation pipeline** that focuses 
 - **Risk Factor Identification**: Automatic flagging of potential issues like missing sources, low-confidence citations, or context misalignment
 - **Detailed Reporting**: Granular breakdown with source excerpts, article context, and validation insights
 
-## 📄 Supported Document Formats
+## Supported Document Formats
 
 The system can process articles from various document formats:
 
@@ -344,7 +344,7 @@ The system can process articles from various document formats:
 - **Folder upload** - Upload entire directories with all contained files
 - **Batch processing** - Process multiple files simultaneously for efficient knowledge base building
 
-## 📊 Output Formats
+## Output Formats
 
 ### Validation Reports
 - **JSON format** with structured validation results including:
@@ -372,7 +372,7 @@ The system can process articles from various document formats:
   - Generation prompt and validation results
   - Article-level validation (prompt separation, quote formatting, context rating sanity checks)
 
-## 🧪 Testing
+## Testing
 
 Run the test suite:
 ```bash
@@ -385,7 +385,7 @@ pytest tests/test_validator.py -v
 pytest tests/test_llm_integration.py -v
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -393,17 +393,17 @@ pytest tests/test_llm_integration.py -v
 4. Add tests for new functionality
 5. Submit a pull request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Anthropic for LLM research and development
 - Hugging Face for open-source transformer models
 - The open-source NLP community for tools and libraries
 
-## 📞 Support
+## Support
 
 For questions, issues, or contributions, please:
 - Open an issue on GitHub

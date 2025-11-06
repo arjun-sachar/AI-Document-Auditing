@@ -399,7 +399,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Anthropic for LLM research and development
+- Anthropic for LLM research and development assistance
 - Hugging Face for open-source transformer models
 - The open-source NLP community for tools and libraries
 

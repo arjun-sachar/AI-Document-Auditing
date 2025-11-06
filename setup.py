@@ -8,8 +8,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="ai-document-auditing",
     version="1.0.0",
-    author="AI Document Auditing Team",
-    author_email="contact@example.com",
+    author="Arjun Sachar",
+    author_email="arjun.sachar@ibm.com",
     description="A comprehensive document validation processor for articles with citation validation and confidence scoring",
     long_description=long_description,
     long_description_content_type="text/markdown",
